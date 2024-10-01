@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Sync with MPV</title>
+    <style>
+        .highlight {
+            background-color: yellow;
+        }
+        pre {
+            white-space: pre-wrap;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Text Highlighting</h1>
+    <pre id="text-container"></pre>
+
+    <script>
+        // Example mapping of timecodes to sentences (adjust as needed)
+        let sentenceDurations = [];
+        const textFile = 'textfile.txt';
+
+        function loadTextFile() {
+            fetch(textFile)
+                .then(response => response.text())
+                .then(text => {
+                    // const container = document.getElementById('text-container');
+                    // const words = text.split(' ');
+                    // container.innerHTML = words.map((word, idx) => `<span id="word-${idx}">${word} </span>`).join('');
+
+                    const textContainer = document.getElementById('text-container');
+                    const sentences = text.split('. ');  // Split the text into sentences
+
+                    let sentenceHtml = '';
+                    const audioDuration = 60;  // Example total audio duration (in seconds)
+                    const sentenceDuration = audioDuration / sentences.length;  // Calculate duration per sentence
+
+                    // Loop through each sentence and assign an ID
+                    sentences.forEach((sentence, index) => {
+                        sentenceHtml += `<span id="sentence-${index}">${sentence}. </span>`;
+                        sentenceDurations.push({
+                            start: index * sentenceDuration,  // Start time of the sentence
+                            end: (index + 1) * sentenceDuration,  // End time of the sentence
+                            id: `sentence-${index}`  // Corresponding ID
+                        });
+                    });
+
+                    textContainer.innerHTML = sentenceHtml;  // Update the DOM with the sentences
+                })
+                .catch(error => {
+                    console.error('Error loading text file:', error);
+                });
+        }
+
+
+
+        // Read text file and display in webpage
+        // const textFile = 'textfile.txt'; // Assuming the text file path
+
+
+        // // Load text from the file
+        // fetch(textFile)
+        //     .then(response => response.text())
+        //     .then(text => {
+        //         const container = document.getElementById('text-container');
+        //         const words = text.split(' ');
+        //         container.innerHTML = words.map((word, idx) => `<span id="word-${idx}">${word} </span>`).join('');
+        //     });
+
+        let playbackSpeed = 1.5;  // Speed at which MPV is playing
+
+        // Function to get current playback position from MPV's IPC server
+        function getCurrentTimeFromMPV() {
+            fetch('http://localhost:3000/current-time')
+                 .then(response => response.json())
+                 .then(data => {
+                     const currentTime = data.playback_time;
+                     highlightCurrentSentence(currentTime);
+                 })
+                 .catch(error => {
+                     console.error('Error fetching playback time:', error);
+                 });
+        }
+
+        let wordTimes = [ /* Populate with times for each word */ ];
+
+        // Function to highlight the word at the current playback time
+        function highlightCurrentSentence(currentTime) {
+            sentenceDurations.forEach(sentence => {
+                const sentenceElement = document.getElementById(sentence.id);
+
+                // Only apply styles if the element exists
+                if (sentenceElement) {
+                    if (currentTime >= sentence.start && currentTime < sentence.end) {
+                        sentenceElement.style.backgroundColor = 'yellow';  // Highlight the sentence
+                    } else {
+                        sentenceElement.style.backgroundColor = 'transparent';  // Remove highlight
+                    }
+                } else {
+                    console.warn(`Element with ID ${sentence.id} not found.`);
+                }
+            });
+        }
+
+        window.onload = () => {
+          loadTextFile();
+          // Polling to get current time from mpv periodically
+          setInterval(getCurrentTimeFromMPV, 1000);  // Poll every 1000ms
+        }
+    </script>
+    <!-- Error fetching playback time: TypeError: Cannot read properties of null (reading 'style')
+        at (index):106:37
+        at Array.forEach (<anonymous>)
+        at highlightCurrentWord ((index):100:31)
+        at (index):77:22 -->
+</body>
+</html>
